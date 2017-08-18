@@ -17,22 +17,11 @@
 		Name of the existing AvailabilitySet, must be in the same resource group where the VMs resides.
 	.EXAMPLE
 		Add-AzureRmAvSetVmToAvailabilitySet -ResourceGroupName rg-avset-test -VMName vm1 -OsType windows -AvailabilitySet avset
-	.NOTE
+	.NOTES
 		* Export-AzureRmResourceGroup will export the VM resources whitout any Extension and Diagnostics, so when it is imported back those items will need to be manually added back.
 		* This script deletes the original VM configuration to import it back, a backup of the template is always made and can be used to reinstantiate the VM as they were before. 
 		* It is strongly recommended to have a full backup of the VM and test it before allowing the script to delete the VM.
 		* Execution of this script is at your own risk.
-	.DISCLAIMER
-		This Sample Code is provided for the purpose of illustration only and is not intended to be used in a production environment.
-		THIS SAMPLE CODE AND ANY RELATED INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED,
-		INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.  
-		We grant You a nonexclusive, royalty-free right to use and modify the Sample Code and to reproduce and distribute the object
-		code form of the Sample Code, provided that You agree: (i) to not use Our name, logo, or trademarks to market Your software
-		product in which the Sample Code is embedded; (ii) to include a valid copyright notice on Your software product in which the
-		Sample Code is embedded; and (iii) to indemnify, hold harmless, and defend Us and Our suppliers from and against any claims
-		or lawsuits, including attorneys’ fees, that arise or result from the use or distribution of the Sample Code.
-		Please note: None of the conditions outlined in the disclaimer above will supersede the terms and conditions contained
-		within the Premier Customer Services Description.
 	#>
 	[CmdletBinding(SupportsShouldProcess=$true, ConfirmImpact="High")]
 	param
@@ -65,7 +54,12 @@
 	{
 		# Getting the existing AvailabilitySet
 		Write-Verbose "Getting the existing AvailabilitySet" -Verbose
-		$avset = Get-AzureRmAvailabilitySet -ResourceGroupName $ResourceGroupName -Name $AvailabilitySet
+		$avset = Get-AzureRmAvailabilitySet -ResourceGroupName $ResourceGroupName -Name $AvailabilitySet -ErrorAction SilentlyContinue
+
+		if ($avSet -eq $null)
+		{
+			throw "Availability Set $AvailabilitySet not found at Resource Group $ResourceGroupName."
+		}
 
 		# Exporting resource group
 		Write-Verbose "Exporting resource group" -Verbose
@@ -104,6 +98,22 @@
 		# Changing original VM resources to attach disks and add to the availability set
 		foreach ($vmResource in $rgdef.resources)
 		{
+			# Checking Availability Set Alignment according to managed or unmanaged disks
+			if ($vmResource.properties.storageProfile.osDisk.psobject.Properties["vhd"] -eq $null)
+			{
+				if ($avset.Sku -ne "Aligned")
+				{
+					throw "VM is using Managed disks and the Availability is not aligned with Managed Disks"
+				}
+			}
+			else
+			{
+				if ($avset.Sku -ne "Classic")
+				{
+					throw "VM is using UnManaged Disks and Availability set should be Classic type."
+				}
+			}
+
 			# Removing any dependencies since they already exists
 			$vmResource.dependsOn = $null
 
@@ -173,6 +183,11 @@
 
 		    if ($PSCmdlet.ShouldProcess($ResourceGroupName,"Confirm that VMs can be excluded from resource group (VHDs are preserved)?"))
 		    {
+
+				Test-AzureRmResourceGroupDeployment -ResourceGroupName $ResourceGroupName `
+													-Mode Incremental `
+													-TemplateFile $newTemplateFile `
+													-Verbose
 
 			    foreach ($vm in $VMName)
 			    {
