@@ -31,11 +31,10 @@ CLRVersion = '2.0'
 #ModuleToProcess = ''
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @('AzureRm.AvailabilitySet.CoreHelper.psm1',
-                  'Add-AzureRmVmAvSetToAvailabilitySet.psm1',
-				  'Remove-AzureRmVmAvSetFromAvailabilitySet.psm1')
+NestedModules = @('AzureRm.AvailabilitySet.CoreHelper.psm1')
 
-FunctionsToExport = @('*')
+FunctionsToExport = @('Add-AzureRmAvSetVmToAvailabilitySet',
+                        'Remove-AzureRmAvSetVmFromAvailabilitySet')
 
 VariablesToExport = '*'
 
