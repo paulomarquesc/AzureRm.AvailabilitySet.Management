@@ -192,10 +192,16 @@
 			    foreach ($vm in $VMName)
 			    {
 				    # Stopping VMs and removing their deployment
-				    Write-Verbose "Stopping VM $vm" -Verbose
-				    Stop-AzureRmVM -ResourceGroupName $ResourceGroupName -Name $vm -Force -ErrorAction Continue
+					Write-Verbose "Stopping VM $vm" -Verbose
+					
+					$vm = Get-AzureRmVM -ResourceGroupName $ResourceGroupName -Name $vm -Status
 
-				    Write-Verbose "Deleing VM $vm from Resource Group $ResourceGroupName (VHDs are preserved and VMs will be imported in the next steps)" -Verbose
+					if ($vm.statuses[1].Code -ne "PowerState/deallocated")
+					{
+						Stop-AzureRmVM -ResourceGroupName $ResourceGroupName -Name $vm -Force -ErrorAction Continue
+					}
+				    
+				    Write-Verbose "Deleting VM $vm from Resource Group $ResourceGroupName (VHDs are preserved and VMs will be imported in the next steps)" -Verbose
 				    Remove-AzureRmVM -ResourceGroupName $ResourceGroupName -Name $vm -Force -ErrorAction Continue
 			    }
 
